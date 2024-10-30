@@ -1,0 +1,46 @@
+# docker-compose.yml
+services:
+  app:
+    build: ..
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=ebmdatabase-ebmpartner.c.aivencloud.com
+      - DB_PORT=12722
+      - DB_NAME=ebmdatabase
+      - DB_USER=avnadmin
+      - DB_PASSWORD=AVNS_pvrX33dMz84Y70qEsPH
+      - SPRING_PROFILES_ACTIVE=test
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+    networks:
+      - task-network
+    restart: unless-stopped
+
+  mysql-db:
+    image: mysql:8.0
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_DATABASE=ebmdatabase
+      - MYSQL_ROOT_PASSWORD=AVNS_pvrX33dMz84Y70qEsPH
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - task-network
+    command: --default-authentication-plugin=mysql_native_password
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  mysql-data:
+
+networks:
+  task-network:
+    driver: bridge

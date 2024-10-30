@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "790694615501",
+    "project_id": "springstorage-f5670",
+    "storage_bucket": "springstorage-f5670.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:790694615501:android:9e9db6fd823b0021d38c84",
+        "android_client_info": {
+          "package_name": "com.parfait.ebm"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAW7lrqntd5mmednq6RFdkqvxGpZ8vHKbA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

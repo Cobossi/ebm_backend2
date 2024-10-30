@@ -1,0 +1,204 @@
+# Système de notifications dans les applications
+
+## 1. Structure de la base de données
+
+La structure de base de données typique pour un système de notifications comprend généralement les tables suivantes :
+
+1. `users` : Stocke les informations sur les utilisateurs
+2. `notifications` : Contient les détails de chaque notification
+3. `user_notifications` : Table de liaison entre les utilisateurs et leurs notifications
+
+Voici un schéma simplifié de ces tables :
+
+```sql
+CREATE TABLE users (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL
+);
+
+CREATE TABLE notifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    content TEXT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_notifications (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    user_id BIGINT NOT NULL,
+    notification_id BIGINT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (notification_id) REFERENCES notifications(id)
+);
+```
+
+## 2. Implémentation avec Spring Boot
+
+### 2.1 Modèles (Entities)
+
+Créez les classes d'entités correspondant aux tables :
+
+```java
+@Entity
+@Table(name = "users")
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String username;
+    private String email;
+    // Getters et setters
+}
+
+@Entity
+@Table(name = "notifications")
+public class Notification {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String content;
+    private String type;
+    private LocalDateTime createdAt;
+    // Getters et setters
+}
+
+@Entity
+@Table(name = "user_notifications")
+public class UserNotification {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
+
+    @ManyToOne
+    @JoinColumn(name = "notification_id")
+    private Notification notification;
+
+    private boolean isRead;
+    // Getters et setters
+}
+```
+
+### 2.2 Repositories
+
+Créez les interfaces repository pour chaque entité :
+
+```java
+public interface UserRepository extends JpaRepository<User, Long> {}
+
+public interface NotificationRepository extends JpaRepository<Notification, Long> {}
+
+public interface UserNotificationRepository extends JpaRepository<UserNotification, Long> {
+    List<UserNotification> findByUserAndIsReadFalse(User user);
+}
+```
+
+### 2.3 Service
+
+Créez un service pour gérer la logique des notifications :
+
+```java
+@Service
+public class NotificationService {
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private NotificationRepository notificationRepository;
+
+    @Autowired
+    private UserNotificationRepository userNotificationRepository;
+
+    public void createNotification(String content, String type, Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+
+        Notification notification = new Notification();
+        notification.setContent(content);
+        notification.setType(type);
+        notification.setCreatedAt(LocalDateTime.now());
+        notificationRepository.save(notification);
+
+        UserNotification userNotification = new UserNotification();
+        userNotification.setUser(user);
+        userNotification.setNotification(notification);
+        userNotification.setRead(false);
+        userNotificationRepository.save(userNotification);
+    }
+
+    public List<UserNotification> getUnreadNotifications(Long userId) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        return userNotificationRepository.findByUserAndIsReadFalse(user);
+    }
+
+    public void markAsRead(Long userNotificationId) {
+        UserNotification userNotification = userNotificationRepository.findById(userNotificationId)
+            .orElseThrow(() -> new RuntimeException("UserNotification not found"));
+        userNotification.setRead(true);
+        userNotificationRepository.save(userNotification);
+    }
+}
+```
+
+### 2.4 Controller
+
+Créez un contrôleur pour exposer les endpoints REST :
+
+```java
+@RestController
+@RequestMapping("/api/notifications")
+public class NotificationController {
+    @Autowired
+    private NotificationService notificationService;
+
+    @PostMapping
+    public ResponseEntity<?> createNotification(@RequestBody NotificationRequest request) {
+        notificationService.createNotification(request.getContent(), request.getType(), request.getUserId());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/unread/{userId}")
+    public ResponseEntity<List<UserNotification>> getUnreadNotifications(@PathVariable Long userId) {
+        List<UserNotification> unreadNotifications = notificationService.getUnreadNotifications(userId);
+        return ResponseEntity.ok(unreadNotifications);
+    }
+
+    @PutMapping("/read/{userNotificationId}")
+    public ResponseEntity<?> markAsRead(@PathVariable Long userNotificationId) {
+        notificationService.markAsRead(userNotificationId);
+        return ResponseEntity.ok().build();
+    }
+}
+```
+
+## 3. Explication détaillée de chaque étape
+
+1. **Création de la notification** :
+   - L'application reçoit une demande de création de notification.
+   - Le service crée une nouvelle entrée dans la table `notifications`.
+   - Il crée ensuite une entrée dans la table `user_notifications` pour lier la notification à l'utilisateur cible.
+
+2. **Récupération des notifications non lues** :
+   - L'utilisateur demande ses notifications non lues.
+   - Le service interroge la table `user_notifications` pour trouver toutes les entrées correspondant à l'utilisateur avec `is_read = false`.
+   - Il renvoie ces notifications à l'utilisateur.
+
+3. **Marquage d'une notification comme lue** :
+   - L'utilisateur marque une notification comme lue.
+   - Le service met à jour l'entrée correspondante dans `user_notifications` en définissant `is_read = true`.
+
+4. **Envoi de notifications en temps réel** (non implémenté dans cet exemple) :
+   - Pour des notifications en temps réel, vous pourriez utiliser WebSocket avec Spring.
+   - Lorsqu'une nouvelle notification est créée, vous enverriez un message WebSocket à l'utilisateur concerné.
+
+5. **Pagination et chargement des anciennes notifications** :
+   - Pour gérer un grand nombre de notifications, implémentez la pagination dans votre API.
+   - Utilisez les méthodes de pagination de Spring Data JPA dans vos repositories.
+
+pour des test en local,comment configuré un service similaire a maidev, mais qui s'occuper des numeros de telphones?, Nb:Ecrire la config dans le yaml, creer un smsservice similaire au fichier ci dessus.
+
+Cette implémentation fournit une base solide pour un système de notifications. Selon les besoins spécifiques de l'application, vous pourriez ajouter des fonctionnalités comme des catégories de notifications, des niveaux de priorité, ou des options de configuration par utilisateur.

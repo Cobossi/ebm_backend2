@@ -1,0 +1,17 @@
+spring:
+  profiles:
+    active: test
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+firebase:
+  bucket-name: "springstorage-f5670.appspot.com"
+  credentials-file: "firebase.json"
+
+springdoc:
+  default-produces-media-type: application/json
+server:
+  servlet:
+    context-path: /api/v1/
